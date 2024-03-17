@@ -1,9 +1,11 @@
 package com.github.ManMaxMan.TasAPI.controller.http.servlets;
 
+import com.github.ManMaxMan.TasAPI.controller.http.utils.SessionUtils;
 import com.github.ManMaxMan.TasAPI.core.dto.MessageDTO;
 import com.github.ManMaxMan.TasAPI.core.dto.MessageDTOBuilder;
 import com.github.ManMaxMan.TasAPI.core.dto.UserDTO;
 import com.github.ManMaxMan.TasAPI.service.api.IMessageService;
+import com.github.ManMaxMan.TasAPI.service.dto.SendMessageDTO;
 import com.github.ManMaxMan.TasAPI.service.factory.ServiceFactory;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -20,8 +22,8 @@ import java.util.List;
 @WebServlet(urlPatterns = "/api/message")
 public class MessageServlet extends HttpServlet {
 
-    private static final String RECIPIENT = "recipient";
-    private static final String BODY_MESSAGE = "body";
+    private static final String TO_PARAMETER_NAME = "to";
+    private static final String TEXT_PARAMETER_NAME = "text";
 
     private final IMessageService messageService = ServiceFactory.getMessageService();
 
@@ -31,56 +33,39 @@ public class MessageServlet extends HttpServlet {
 
         PrintWriter writer = resp.getWriter();
 
-        HttpSession session = req.getSession(false);
-        UserDTO currentUser = (UserDTO) session.getAttribute("user");
-        if (currentUser==null){
-            writer.write("<p>Авторизуйтесь в системе!</p>");
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        List<MessageDTO> messages;
+        try {
+            messages = this.messageService.list(SessionUtils.loadUser(req.getSession()));
+        }catch (IllegalArgumentException e){
+            writer.write(e.getMessage());
             return;
-        }else {
-
-            List<MessageDTO> messageList;
-            try {
-                messageList = messageService.getMailFromUser(currentUser);
-            }catch (IllegalArgumentException e){
-                writer.write("<p>" + e.getMessage()+"</p>");
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return;
-            }
-            writer.write("<p>Ваши сообщения:</p>");
-            messageList.forEach(message->{
-                writer.write("<br>"+message+"</br>");
-            });
-            resp.setStatus(HttpServletResponse.SC_OK);
         }
+
+        if(messages != null){
+            for (MessageDTO message : messages) {
+                writer.write("<p>Дата отправки: " + message.getLocalDateTime() + "</p>");
+                writer.write("<p>От кого: " + message.getFrom() + "</p>");
+                writer.write("<p>Текст: " + message.getBody() + "</p>");
+            }
+        }
+
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
+        SendMessageDTO dto = new SendMessageDTO();
+        dto.setTo(req.getParameter(TO_PARAMETER_NAME));
+        dto.setText(req.getParameter(TEXT_PARAMETER_NAME));
+
         PrintWriter writer = resp.getWriter();
 
-        HttpSession session = req.getSession(false);
-        UserDTO currentUser = (UserDTO) session.getAttribute("user");
-        if (currentUser==null){
-            writer.write("<p>Авторизуйтесь в системе!</p>");
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }else {
-            try {
-                messageService.postToUser(MessageDTOBuilder.builder()
-                        //.setLocalDateTime(LocalDateTime.now())
-                        .setFrom(currentUser.getLogin())
-                        .setTo(RECIPIENT)
-                        .setBody(BODY_MESSAGE).build());
-            }catch (IllegalArgumentException e){
-                writer.write("<p>" + e.getMessage()+"</p>");
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return;
-            }
-
-            writer.write("<p>Сообщение успешно отправлено!</p>");
-            resp.setStatus(HttpServletResponse.SC_OK);
+        try {
+            this.messageService.create(SessionUtils.loadUser(req.getSession()), dto);
+            resp.setStatus(HttpServletResponse.SC_CREATED);
+            writer.write("<p>Сообщение отправлено!");
+        }catch (IllegalArgumentException e){
+            writer.write(e.getMessage());
         }
     }
 }

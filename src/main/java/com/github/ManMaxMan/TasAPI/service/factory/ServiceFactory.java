@@ -42,7 +42,7 @@ public class ServiceFactory {
         if(messageService == null){
             synchronized (ServiceFactory.class){
                 if(messageService == null){
-                    messageService = new MessageService(getUsersService());
+                    messageService = new MessageService(DaoFactory.getMessageDao(),getUsersService());
                 }
             }
         }

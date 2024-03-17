@@ -16,7 +16,6 @@ public class UserDTO {
     private LocalDate birthday;
     private LocalDateTime registrationDate;
     private ERoles role;
-    private List<MessageDTO> messagesList;
 
     public UserDTO(){
     }
@@ -76,14 +75,6 @@ public class UserDTO {
 
     public void setRole(ERoles role) {
         this.role = role;
-    }
-
-    public List<MessageDTO> getMessagesList() {
-        return messagesList;
-    }
-
-    public void setMessagesList(List<MessageDTO> messagesList) {
-        this.messagesList = messagesList;
     }
 
     @Override
